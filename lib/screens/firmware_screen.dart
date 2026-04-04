@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +62,7 @@ class _FirmwareScreenState extends ConsumerState<FirmwareScreen>
               controller: _tabs,
               children: [
                 _LocalTab(
-                  selected: selected?.isLocal == true ? selected : null,
+                  selected: selected,
                   onPicked: (src) =>
                       ref.read(selectedFirmwareProvider.notifier).state = src,
                 ),
@@ -93,31 +94,132 @@ class _FirmwareScreenState extends ConsumerState<FirmwareScreen>
 
 // ─── Local Tab ───────────────────────────────────────────────────────────────
 
-class _LocalTab extends StatelessWidget {
+class _LocalTab extends ConsumerWidget {
   final FirmwareSource? selected;
   final ValueChanged<FirmwareSource> onPicked;
 
   const _LocalTab({required this.selected, required this.onPicked});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('Pick a local file (.bin, .uf2, .zip)',
-              style: TextStyle(color: Colors.white54)),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            key: const Key('btn_pick_file'),
-            onPressed: () => _pick(context),
-            icon: const Icon(Icons.folder_open),
-            label: Text(selected?.displayName ?? 'Browse…'),
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.white70),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final libraryAsync = ref.watch(firmwareLibraryServiceProvider);
+
+    return libraryAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+      error: (e, _) => Center(child: Text('$e', style: const TextStyle(color: Colors.red))),
+      data: (library) {
+        // Scan files directly so we always have the real File.path — no
+        // existsSync() guesswork in the tap handler.
+        final files = library.cacheDir.existsSync()
+            ? (library.cacheDir.listSync().whereType<File>().toList()
+              ..sort((a, b) => a.path.compareTo(b.path)))
+            : <File>[];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Library section ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.inventory_2_outlined,
+                      color: Colors.white38, size: 16),
+                  const SizedBox(width: 8),
+                  const Text('Firmware Library',
+                      style: TextStyle(
+                          color: Colors.white54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          letterSpacing: 0.8)),
+                  const Spacer(),
+                  Text('${files.length} file${files.length == 1 ? '' : 's'}',
+                      style: const TextStyle(color: Colors.white24, fontSize: 12)),
+                ],
+              ),
+            ),
+            if (files.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  'No firmware downloaded yet.\nUse the Online tab to fetch MeshCore releases.',
+                  key: Key('library_empty_hint'),
+                  style: TextStyle(color: Colors.white24, fontSize: 13, height: 1.5),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  key: const Key('library_list'),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: files.length,
+                  itemBuilder: (_, i) {
+                    final file = files[i];
+                    final filename = file.uri.pathSegments.last;
+                    final asset = FirmwareAsset.fromAssetName(
+                      name: filename,
+                      downloadUrl: file.path,
+                      sizeBytes: file.lengthSync(),
+                    );
+                    // Compare by filename so isSelected works after picking
+                    final isSelected = selected?.displayName == filename;
+                    return ListTile(
+                      key: Key('library_item_$filename'),
+                      leading: Icon(
+                        Icons.memory,
+                        color: isSelected ? Colors.orange : Colors.white38,
+                      ),
+                      title: Text(asset.displayName,
+                          style: TextStyle(
+                              color: isSelected ? Colors.orange : Colors.white70,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal)),
+                      subtitle: Text(
+                        '${asset.version} · ${asset.format.name}',
+                        style: const TextStyle(
+                            color: Colors.white24, fontSize: 12),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected)
+                            const Icon(Icons.check_circle,
+                                color: Colors.orange, size: 20),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.white24, size: 20),
+                            tooltip: 'Remove from library',
+                            onPressed: () async {
+                              await library.delete(asset);
+                              ref.invalidate(firmwareLibraryServiceProvider);
+                            },
+                          ),
+                        ],
+                      ),
+                      // Use the real file.path — no existsSync() lookup needed
+                      onTap: () => onPicked(FirmwareSource.localFile(file.path)),
+                    );
+                  },
+                ),
+              ),
+            if (files.isEmpty) const Spacer(),
+            // ── Browse for file outside library ──────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: OutlinedButton.icon(
+                key: const Key('btn_pick_file'),
+                onPressed: () => _pick(context),
+                icon: const Icon(Icons.folder_open, size: 18),
+                label: const Text('Browse for file…'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white38,
+                    side: const BorderSide(color: Colors.white12)),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

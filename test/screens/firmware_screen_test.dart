@@ -60,23 +60,50 @@ Widget _wrap({
 
 void main() {
   group('FirmwareScreen — Local tab', () {
-    testWidgets('shows pick file button on Local tab', (tester) async {
+    testWidgets('shows empty library hint when no files downloaded',
+        (tester) async {
       await tester.pumpWidget(_wrap());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('library_empty_hint')), findsOneWidget);
+    });
+
+    testWidgets('shows browse button', (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('btn_pick_file')), findsOneWidget);
     });
 
     testWidgets('does not show continue bar when no firmware selected',
         (tester) async {
       await tester.pumpWidget(_wrap());
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('btn_continue')), findsNothing);
     });
 
     testWidgets('shows continue bar when firmware is selected', (tester) async {
       final fw = FirmwareSource.localFile('/sdcard/firmware.bin');
       await tester.pumpWidget(_wrap(firmware: fw));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('btn_continue')), findsOneWidget);
       expect(find.byKey(const Key('selected_firmware_name')), findsOneWidget);
+    });
+
+    testWidgets('library list shows downloaded files and allows selection',
+        (tester) async {
+      final lib = _makeLibrary();
+      const assetName = 'Heltec_v3_companion_radio_usb-v1.14.1-abc-merged.bin';
+      File('${lib.cacheDir.path}/$assetName')
+          .writeAsBytesSync([0xDE, 0xAD, 0xBE, 0xEF]);
+
+      await tester.pumpWidget(_wrap(library: lib));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('library_list')), findsOneWidget);
+      expect(find.textContaining('Heltec v3'), findsWidgets);
+
+      // Tapping the item should trigger onPicked (continue bar appears)
+      await tester.tap(find.byKey(const Key('library_item_$assetName')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('btn_continue')), findsOneWidget);
     });
   });
 
