@@ -596,33 +596,44 @@ class _SelectedBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.blueGrey.shade900,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Row(
-        children: [
-          const Icon(Icons.memory, color: Colors.cyanAccent, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(source.displayName,
-                    key: const Key('selected_firmware_name'),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-                Text(source.isLocal ? 'Local file' : 'MeshCore ${source.tag}',
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.orange.shade900.withOpacity(0.95),
+          border: const Border(top: BorderSide(color: Colors.orange, width: 1.5)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Row(
+          children: [
+            const Icon(Icons.memory, color: Colors.orange, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(source.displayName,
+                      key: const Key('selected_firmware_name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text(source.isLocal ? 'Local file' : 'MeshCore ${source.tag}',
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
             ),
-          ),
-          FilledButton(
-            key: const Key('btn_continue'),
-            onPressed: onContinue,
-            child: const Text('Continue →'),
-          ),
-        ],
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              key: const Key('btn_continue'),
+              onPressed: onContinue,
+              icon: const Icon(Icons.bolt, size: 18),
+              label: const Text('Flash →'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            ),
+          ],
+        ),
       ),
     );
   }
