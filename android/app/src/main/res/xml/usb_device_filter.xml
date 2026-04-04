@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ESP32-S3 native USB CDC -->
+    <usb-device vendor-id="12346" product-id="4097" />   <!-- 0x303A:0x1001 -->
+    <!-- CP2102 USB-UART bridge -->
+    <usb-device vendor-id="4292" product-id="60000" />   <!-- 0x10C4:0xEA60 -->
+    <!-- CH343 USB-UART bridge -->
+    <usb-device vendor-id="6790" product-id="21972" />   <!-- 0x1A86:0x55D4 -->
+    <!-- RAK4631 nRF52840 -->
+    <usb-device vendor-id="10374" product-id="68" />     <!-- 0x2886:0x0044 -->
+    <!-- Adafruit UF2 (VID only — PID varies) -->
+    <usb-device vendor-id="9114" />                      <!-- 0x239A -->
+</resources>
