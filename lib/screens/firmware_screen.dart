@@ -55,37 +55,31 @@ class _FirmwareScreenState extends ConsumerState<FirmwareScreen>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _LocalTab(
-                  selected: selected,
-                  onPicked: (src) =>
-                      ref.read(selectedFirmwareProvider.notifier).state = src,
-                ),
-                _OnlineTab(
-                  searchQuery: _searchQuery,
-                  selectedTag: _selectedTag,
-                  downloadProgress: _downloadProgress,
-                  onSearchChanged: (q) => setState(() => _searchQuery = q),
-                  onTagChanged: (t) => setState(() => _selectedTag = t),
-                  onSelect: (src) =>
-                      ref.read(selectedFirmwareProvider.notifier).state = src,
-                  onDownloadProgressUpdate: (name, p) =>
-                      setState(() => _downloadProgress[name] = p),
-                ),
-              ],
-            ),
-          ),
-          if (selected != null) ...[
-            _SelectedBar(
+      bottomNavigationBar: selected == null
+          ? null
+          : _SelectedBar(
               source: selected,
               onContinue: () => Navigator.of(context).pushNamed('/preflash'),
             ),
-          ],
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _LocalTab(
+            selected: selected,
+            onPicked: (src) =>
+                ref.read(selectedFirmwareProvider.notifier).state = src,
+          ),
+          _OnlineTab(
+            searchQuery: _searchQuery,
+            selectedTag: _selectedTag,
+            downloadProgress: _downloadProgress,
+            onSearchChanged: (q) => setState(() => _searchQuery = q),
+            onTagChanged: (t) => setState(() => _selectedTag = t),
+            onSelect: (src) =>
+                ref.read(selectedFirmwareProvider.notifier).state = src,
+            onDownloadProgressUpdate: (name, p) =>
+                setState(() => _downloadProgress[name] = p),
+          ),
         ],
       ),
     );
@@ -596,44 +590,42 @@ class _SelectedBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.orange.shade900.withOpacity(0.95),
-          border: const Border(top: BorderSide(color: Colors.orange, width: 1.5)),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Row(
-          children: [
-            const Icon(Icons.memory, color: Colors.orange, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(source.displayName,
-                      key: const Key('selected_firmware_name'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  Text(source.isLocal ? 'Local file' : 'MeshCore ${source.tag}',
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.orange.shade900.withOpacity(0.95),
+        border: const Border(top: BorderSide(color: Colors.orange, width: 1.5)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Row(
+        children: [
+          const Icon(Icons.memory, color: Colors.orange, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(source.displayName,
+                    key: const Key('selected_firmware_name'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(source.isLocal ? 'Local file' : 'MeshCore ${source.tag}',
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
             ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              key: const Key('btn_continue'),
-              onPressed: onContinue,
-              icon: const Icon(Icons.bolt, size: 18),
-              label: const Text('Flash →'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            key: const Key('btn_continue'),
+            onPressed: onContinue,
+            icon: const Icon(Icons.bolt, size: 18),
+            label: const Text('Flash →'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+          ),
+        ],
       ),
     );
   }
