@@ -55,31 +55,40 @@ class _FirmwareScreenState extends ConsumerState<FirmwareScreen>
           ],
         ),
       ),
-      bottomNavigationBar: selected == null
-          ? null
-          : _SelectedBar(
-              source: selected,
-              onContinue: () => Navigator.of(context).pushNamed('/preflash'),
-            ),
-      body: TabBarView(
-        controller: _tabs,
+      body: Stack(
         children: [
-          _LocalTab(
-            selected: selected,
-            onPicked: (src) =>
-                ref.read(selectedFirmwareProvider.notifier).state = src,
+          TabBarView(
+            controller: _tabs,
+            children: [
+              _LocalTab(
+                selected: selected,
+                onPicked: (src) =>
+                    ref.read(selectedFirmwareProvider.notifier).state = src,
+              ),
+              _OnlineTab(
+                searchQuery: _searchQuery,
+                selectedTag: _selectedTag,
+                downloadProgress: _downloadProgress,
+                onSearchChanged: (q) => setState(() => _searchQuery = q),
+                onTagChanged: (t) => setState(() => _selectedTag = t),
+                onSelect: (src) =>
+                    ref.read(selectedFirmwareProvider.notifier).state = src,
+                onDownloadProgressUpdate: (name, p) =>
+                    setState(() => _downloadProgress[name] = p),
+              ),
+            ],
           ),
-          _OnlineTab(
-            searchQuery: _searchQuery,
-            selectedTag: _selectedTag,
-            downloadProgress: _downloadProgress,
-            onSearchChanged: (q) => setState(() => _searchQuery = q),
-            onTagChanged: (t) => setState(() => _selectedTag = t),
-            onSelect: (src) =>
-                ref.read(selectedFirmwareProvider.notifier).state = src,
-            onDownloadProgressUpdate: (name, p) =>
-                setState(() => _downloadProgress[name] = p),
-          ),
+          if (selected != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.of(context).padding.bottom,
+              child: _SelectedBar(
+                source: selected,
+                onContinue: () =>
+                    Navigator.of(context).pushNamed('/preflash'),
+              ),
+            ),
         ],
       ),
     );
@@ -592,8 +601,8 @@ class _SelectedBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.orange.shade900.withOpacity(0.95),
-        border: const Border(top: BorderSide(color: Colors.orange, width: 1.5)),
+        color: Colors.orange.shade900,
+        border: const Border(top: BorderSide(color: Colors.orange, width: 2)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
