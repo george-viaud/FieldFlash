@@ -8,6 +8,9 @@ import 'package:field_flash/services/firmware_library_service.dart';
 // Currently connected/detected device (null = not connected)
 final detectedDeviceProvider = StateProvider<DeviceProfile?>((ref) => null);
 
+// Android USB device name string for the connected device (e.g. "/dev/bus/usb/001/002")
+final detectedDeviceNameProvider = StateProvider<String?>((ref) => null);
+
 // Selected firmware source (null = not chosen)
 final selectedFirmwareProvider = StateProvider<FirmwareSource?>((ref) => null);
 

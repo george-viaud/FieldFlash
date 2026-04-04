@@ -58,13 +58,34 @@ class _FlashScreenState extends ConsumerState<FlashScreen> {
       return;
     }
 
-    // Open USB connection
-    final deviceName = ''; // populated from USB attach event in real use
+    // Resolve USB device name — prefer the one from the attach event,
+    // fall back to querying the OS for whatever is currently connected.
+    String? deviceName = ref.read(detectedDeviceNameProvider);
+    if (deviceName == null || deviceName.isEmpty) {
+      final devices = await listUsbDevices();
+      deviceName = devices.isNotEmpty
+          ? (devices.first['deviceName'] as String? ?? '')
+          : '';
+    }
+    if (deviceName.isEmpty) {
+      ref.read(flashStateProvider.notifier).state = FlashState.error;
+      ref.read(flashProgressProvider.notifier).state =
+          FlashProgress.error('No USB device found — is it plugged in?');
+      return;
+    }
+
+    // Request permission (Android shows a system dialog on first use)
+    try {
+      await requestUsbPermission(deviceName);
+    } catch (_) {
+      // Permission dialog cancelled or already granted — continue
+    }
+
     final opened = await UsbBulkConnection.open(deviceName);
     if (!opened) {
       ref.read(flashStateProvider.notifier).state = FlashState.error;
       ref.read(flashProgressProvider.notifier).state =
-          FlashProgress.error('Could not open USB device');
+          FlashProgress.error('Could not open USB device "$deviceName"');
       return;
     }
 

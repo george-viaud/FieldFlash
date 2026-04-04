@@ -26,12 +26,17 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       if (event['event'] == 'attached') {
         final vid = event['vendorId'] as int? ?? 0;
         final pid = event['productId'] as int? ?? 0;
+        final name = event['deviceName'] as String?;
         final profile = UsbDeviceService.detect(vid: vid, pid: pid);
         if (profile != null && mounted) {
           ref.read(detectedDeviceProvider.notifier).state = profile;
+          ref.read(detectedDeviceNameProvider.notifier).state = name;
         }
       } else if (event['event'] == 'detached') {
-        if (mounted) ref.read(detectedDeviceProvider.notifier).state = null;
+        if (mounted) {
+          ref.read(detectedDeviceProvider.notifier).state = null;
+          ref.read(detectedDeviceNameProvider.notifier).state = null;
+        }
       }
     });
   }
