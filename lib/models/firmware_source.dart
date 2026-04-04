@@ -39,5 +39,8 @@ class FirmwareSource {
 
   String get fileExtension => p.extension(_path).toLowerCase();
 
+  /// Absolute path to the file on disk (local files and cached downloads).
+  String get filePath => isLocal ? _path : (_downloadUrl ?? _path);
+
   String? get downloadUrl => _downloadUrl;
 }

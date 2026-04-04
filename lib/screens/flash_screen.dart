@@ -50,7 +50,7 @@ class _FlashScreenState extends ConsumerState<FlashScreen> {
     // Load firmware bytes
     late Uint8List bytes;
     try {
-      bytes = await File(firmware.downloadUrl ?? '').readAsBytes();
+      bytes = await File(firmware.filePath).readAsBytes();
     } catch (e) {
       ref.read(flashStateProvider.notifier).state = FlashState.error;
       ref.read(flashProgressProvider.notifier).state =
