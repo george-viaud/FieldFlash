@@ -55,40 +55,50 @@ class _FirmwareScreenState extends ConsumerState<FirmwareScreen>
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          TabBarView(
-            controller: _tabs,
-            children: [
-              _LocalTab(
-                selected: selected,
-                onPicked: (src) =>
-                    ref.read(selectedFirmwareProvider.notifier).state = src,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: selected == null
+          ? null
+          : FloatingActionButton.extended(
+              key: const Key('btn_continue'),
+              onPressed: () => Navigator.of(context).pushNamed('/preflash'),
+              icon: const Icon(Icons.bolt),
+              label: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Flash →',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(selected.displayName,
+                      key: const Key('selected_firmware_name'),
+                      style: const TextStyle(fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
               ),
-              _OnlineTab(
-                searchQuery: _searchQuery,
-                selectedTag: _selectedTag,
-                downloadProgress: _downloadProgress,
-                onSearchChanged: (q) => setState(() => _searchQuery = q),
-                onTagChanged: (t) => setState(() => _selectedTag = t),
-                onSelect: (src) =>
-                    ref.read(selectedFirmwareProvider.notifier).state = src,
-                onDownloadProgressUpdate: (name, p) =>
-                    setState(() => _downloadProgress[name] = p),
-              ),
-            ],
-          ),
-          if (selected != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: MediaQuery.of(context).padding.bottom,
-              child: _SelectedBar(
-                source: selected,
-                onContinue: () =>
-                    Navigator.of(context).pushNamed('/preflash'),
-              ),
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              extendedPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _LocalTab(
+            selected: selected,
+            onPicked: (src) =>
+                ref.read(selectedFirmwareProvider.notifier).state = src,
+          ),
+          _OnlineTab(
+            searchQuery: _searchQuery,
+            selectedTag: _selectedTag,
+            downloadProgress: _downloadProgress,
+            onSearchChanged: (q) => setState(() => _searchQuery = q),
+            onTagChanged: (t) => setState(() => _selectedTag = t),
+            onSelect: (src) =>
+                ref.read(selectedFirmwareProvider.notifier).state = src,
+            onDownloadProgressUpdate: (name, p) =>
+                setState(() => _downloadProgress[name] = p),
+          ),
         ],
       ),
     );
