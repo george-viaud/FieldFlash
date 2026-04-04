@@ -7,8 +7,8 @@ import 'package:field_flash/protocols/flash_protocol.dart';
 import 'package:field_flash/protocols/slip.dart';
 
 const int _blockSize = 0x400; // 1KB blocks for reliable transfer
-const int _syncRetries = 7;
-const Duration _readTimeout = Duration(milliseconds: 500);
+const int _syncRetries = 10;
+const Duration _readTimeout = Duration(milliseconds: 1500);
 
 class EspFlashProtocol implements FlashProtocol {
   @override
@@ -90,19 +90,28 @@ class EspFlashProtocol implements FlashProtocol {
   }
 
   Future<bool> _sync(UsbConnection connection) async {
+    // Drain any boot-log garbage already in the RX buffer.
+    await connection.read(4096, timeout: const Duration(milliseconds: 200));
+
     for (int attempt = 0; attempt < _syncRetries; attempt++) {
       await connection.write(slipEncode(buildSyncPacket()));
+      await Future.delayed(const Duration(milliseconds: 100));
       final resp = await _readResponse(connection);
       if (resp != null && resp.op == kEspSync) return true;
     }
     return false;
   }
 
+  /// Reads raw bytes and extracts the first valid SLIP frame from anywhere
+  /// in the buffer. The ESP32 may prepend boot-log text before the frame.
   Future<EspResponse?> _readResponse(UsbConnection connection) async {
-    final raw = await connection.read(256, timeout: _readTimeout);
+    final raw = await connection.read(1024, timeout: _readTimeout);
     if (raw.isEmpty) return null;
+    // Find the first 0xC0 delimiter — skip any leading boot-log text.
+    final start = raw.indexOf(0xC0);
+    if (start == -1) return null;
     try {
-      final decoded = slipDecode(raw);
+      final decoded = slipDecode(Uint8List.sublistView(raw, start));
       return parseEspResponse(decoded);
     } catch (_) {
       return null;
