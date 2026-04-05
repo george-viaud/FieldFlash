@@ -11,39 +11,47 @@ class UsbSerialConnection implements UsbConnection {
 
   UsbSerialConnection._(this._port);
 
-  /// Opens the first recognized ESP32 USB serial device.
-  /// Returns null if none found or open fails.
+  /// Opens the first available USB serial device (any VID/PID).
+  /// Uses listDevices() so it works regardless of chip type.
   static Future<UsbSerialConnection?> openEsp32() async {
-    // Try each known ESP32 VID/PID + driver in priority order.
-    final candidates = [
-      (vid: 0x303A, pid: 0x1001, type: UsbSerial.CDC),   // ESP32-S3 native USB
-      (vid: 0x10C4, pid: 0xEA60, type: UsbSerial.CP210x), // CP2102
-      (vid: 0x1A86, pid: 0x55D4, type: UsbSerial.CH34x),  // CH343
-    ];
+    final devices = await UsbSerial.listDevices();
+    if (devices.isEmpty) return null;
 
-    for (final c in candidates) {
-      final port = await UsbSerial.create(c.vid, c.pid, c.type);
-      if (port == null) continue;
-      final ok = await port.open();
-      if (!ok) { await port.close(); continue; }
-      await port.setPortParameters(
-        115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE,
-      );
-      return UsbSerialConnection._(port);
+    for (final device in devices) {
+      try {
+        final type = _driverType(device.vid);
+        final port = await device.create(type);
+        if (port == null) continue;
+        final ok = await port.open();
+        if (!ok) { await port.close(); continue; }
+        await port.setPortParameters(
+          115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE,
+        );
+        return UsbSerialConnection._(port);
+      } catch (_) {
+        continue;
+      }
     }
     return null;
   }
 
-  /// ESP32-S3 USB JTAG/Serial reset sequence (matches esptool-js usbJTAGSerialReset).
-  /// Toggles DTR/RTS to put the device into ROM bootloader mode.
+  static String _driverType(int? vid) {
+    switch (vid) {
+      case 0x10C4: return UsbSerial.CP210x; // Silicon Labs CP2102/CP2104
+      case 0x1A86: return UsbSerial.CH34x;  // QinHeng CH340/CH343
+      case 0x0403: return UsbSerial.FTDI;   // FTDI FT232
+      default:     return UsbSerial.CDC;    // ESP32-S3 native USB, CDC-ACM
+    }
+  }
+
+  /// Classic esptool reset sequence for CP210x/CH34x boards (Heltec V3 etc).
+  /// RTS → EN (reset), DTR → IO0 (boot mode select), both via inverters on board.
   Future<void> resetIntoBootloader() async {
-    await _port.setDTR(false); await _port.setRTS(false);
+    await _port.setDTR(false); await _port.setRTS(true);  // EN=LOW (reset), IO0=HIGH
     await Future.delayed(const Duration(milliseconds: 100));
-    await _port.setDTR(true);  await _port.setRTS(false);
-    await Future.delayed(const Duration(milliseconds: 100));
-    await _port.setDTR(false); await _port.setRTS(true);
-    await Future.delayed(const Duration(milliseconds: 100));
-    await _port.setDTR(false); await _port.setRTS(false);
+    await _port.setDTR(true);  await _port.setRTS(false); // EN=HIGH (start), IO0=LOW (bootloader)
+    await Future.delayed(const Duration(milliseconds: 50));
+    await _port.setDTR(false);                            // release IO0
   }
 
   @override
