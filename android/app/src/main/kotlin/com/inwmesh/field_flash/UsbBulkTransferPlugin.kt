@@ -94,6 +94,25 @@ class UsbBulkTransferPlugin : FlutterPlugin, MethodCallHandler {
                 result.success(openDevice(device))
             }
 
+            "resetIntoBootloader" -> {
+                // ESP32-S3 USB JTAG/Serial reset sequence (matches esptool-js usbJTAGSerialReset).
+                // Toggles DTR/RTS via CDC SET_CONTROL_LINE_STATE to force ROM bootloader.
+                val conn = activeConnection
+                if (conn == null) { result.error("NO_DEVICE", "No device open", null); return }
+                val commIfaceIdx = 0
+                fun setSignals(dtr: Boolean, rts: Boolean) {
+                    val v = ((if (rts) 1 else 0) shl 1) or (if (dtr) 1 else 0)
+                    conn.controlTransfer(0x21, 0x22, v, commIfaceIdx, null, 0, 200)
+                }
+                Thread {
+                    setSignals(dtr = false, rts = false); Thread.sleep(100)
+                    setSignals(dtr = true,  rts = false); Thread.sleep(100)
+                    setSignals(dtr = false, rts = true);  Thread.sleep(100)
+                    setSignals(dtr = false, rts = false); Thread.sleep(50)
+                    result.success(null)
+                }.start()
+            }
+
             "write" -> {
                 val data = call.argument<ByteArray>("data")
                     ?: return result.error("NULL_DATA", "data is null", null)
@@ -133,29 +152,57 @@ class UsbBulkTransferPlugin : FlutterPlugin, MethodCallHandler {
         activeConnection?.close()
         val conn = usbManager.openDevice(device) ?: return false
 
-        // Find the first bulk-transfer interface
+        // Find the CDC Data interface (bulk IN + OUT endpoints).
+        // CDC devices have two interfaces:
+        //   0 = Communication (control/interrupt) — skip
+        //   1 = Data (bulk IN + OUT)              — use this one
+        // We also claim the Communication interface so the OS doesn't block us.
+        var commInterface: android.hardware.usb.UsbInterface? = null
+        var dataInterface: android.hardware.usb.UsbInterface? = null
+
         for (i in 0 until device.interfaceCount) {
             val iface = device.getInterface(i)
-            conn.claimInterface(iface, true)
+            var hasBulkOut = false
+            var hasBulkIn  = false
             for (j in 0 until iface.endpointCount) {
                 val ep = iface.getEndpoint(j)
                 if (ep.type == android.hardware.usb.UsbConstants.USB_ENDPOINT_XFER_BULK) {
-                    if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
-                        activeEndpointOut = ep
-                    } else {
-                        activeEndpointIn = ep
-                    }
+                    if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) hasBulkOut = true
+                    else hasBulkIn = true
                 }
             }
-            if (activeEndpointOut != null && activeEndpointIn != null) break
+            if (hasBulkOut && hasBulkIn) {
+                dataInterface = iface
+            } else {
+                commInterface = iface
+            }
         }
 
-        return if (activeEndpointOut != null && activeEndpointIn != null) {
-            activeConnection = conn
-            true
-        } else {
-            conn.close()
-            false
+        if (dataInterface == null) { conn.close(); return false }
+
+        // Claim both interfaces; ignore failures on the comm interface.
+        commInterface?.let { conn.claimInterface(it, true) }
+        conn.claimInterface(dataInterface, true)
+
+        // Extract bulk endpoints from the data interface.
+        for (j in 0 until dataInterface.endpointCount) {
+            val ep = dataInterface.getEndpoint(j)
+            if (ep.type == android.hardware.usb.UsbConstants.USB_ENDPOINT_XFER_BULK) {
+                if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) activeEndpointOut = ep
+                else activeEndpointIn = ep
+            }
         }
+
+        if (activeEndpointOut == null || activeEndpointIn == null) {
+            conn.close(); return false
+        }
+
+        // Send CDC SET_CONTROL_LINE_STATE (DTR=1, RTS=1) to activate the port.
+        // bmRequestType=0x21 (class, interface, host→device), bRequest=0x22, wValue=0x03
+        val commIfaceIdx = commInterface?.id ?: 0
+        conn.controlTransfer(0x21, 0x22, 0x03, commIfaceIdx, null, 0, 1000)
+
+        activeConnection = conn
+        return true
     }
 }

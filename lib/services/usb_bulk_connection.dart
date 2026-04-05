@@ -57,3 +57,7 @@ Future<List<Map<String, dynamic>>> listUsbDevices() async {
 /// Requests OS permission for [deviceName]. Android will show a system dialog.
 Future<void> requestUsbPermission(String deviceName) =>
     _channel.invokeMethod('requestPermission', {'deviceName': deviceName});
+
+/// Toggles DTR/RTS to reset an ESP32-S3 (native USB) into ROM bootloader mode.
+Future<void> resetIntoBootloader() =>
+    _channel.invokeMethod('resetIntoBootloader');

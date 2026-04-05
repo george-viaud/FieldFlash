@@ -6,7 +6,8 @@ import 'package:field_flash/screens/preflash_screen.dart';
 import 'package:field_flash/screens/flash_screen.dart';
 import 'package:field_flash/screens/settings_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: FieldFlashApp()));
 }
 

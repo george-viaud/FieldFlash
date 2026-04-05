@@ -35,7 +35,7 @@ void main() {
       );
       await tester.pumpWidget(_wrap(device: profile));
       expect(find.text('Boot mode'), findsOneWidget);
-      expect(find.textContaining('BOOT'), findsOneWidget);
+      expect(find.textContaining('automatically'), findsOneWidget);
     });
 
     testWidgets('shows nRF boot mode instructions for Nordic DFU device', (tester) async {

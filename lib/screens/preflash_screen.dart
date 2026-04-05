@@ -76,7 +76,7 @@ class _BootModeInstructions extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             isEsp
-                ? '1. Hold the BOOT button\n2. Tap RESET\n3. Release BOOT\n4. Device is now in download mode'
+                ? 'The app will reset the device into bootloader mode automatically via USB — no button press needed.\n\nJust make sure the device is powered and connected.'
                 : '1. Double-tap RESET quickly\n2. LED will pulse — bootloader active',
             style: const TextStyle(color: Colors.white70, height: 1.6),
           ),

@@ -89,6 +89,11 @@ class _FlashScreenState extends ConsumerState<FlashScreen> {
       return;
     }
 
+    // Reset the device into ROM bootloader via DTR/RTS toggling (no button press needed).
+    setState(() => _log.add('Resetting device into bootloader…'));
+    await resetIntoBootloader();
+    await Future.delayed(const Duration(milliseconds: 500));
+
     final conn = UsbBulkConnection(deviceName);
     final protocol = _protocolFor(device);
 

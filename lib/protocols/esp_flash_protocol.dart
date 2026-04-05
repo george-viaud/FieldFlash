@@ -91,13 +91,20 @@ class EspFlashProtocol implements FlashProtocol {
 
   Future<bool> _sync(UsbConnection connection) async {
     // Drain any boot-log garbage already in the RX buffer.
-    await connection.read(4096, timeout: const Duration(milliseconds: 200));
+    await connection.read(4096, timeout: const Duration(milliseconds: 300));
 
     for (int attempt = 0; attempt < _syncRetries; attempt++) {
       await connection.write(slipEncode(buildSyncPacket()));
       await Future.delayed(const Duration(milliseconds: 100));
       final resp = await _readResponse(connection);
-      if (resp != null && resp.op == kEspSync) return true;
+      if (resp != null && resp.op == kEspSync) {
+        // ESP ROM sends 8 SYNC response frames total — drain the remaining 7
+        // so they don't corrupt subsequent command responses.
+        for (int i = 0; i < 7; i++) {
+          await _readResponse(connection);
+        }
+        return true;
+      }
     }
     return false;
   }
