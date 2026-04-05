@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:field_flash/models/flash_progress.dart';
 import 'package:field_flash/protocols/esp_flash_protocol.dart';
 import 'package:field_flash/services/app_providers.dart';
-import 'package:field_flash/services/usb_bulk_connection.dart';
+import 'package:field_flash/services/usb_serial_connection.dart';
 import 'package:field_flash/models/device_profile.dart';
 
 class FlashScreen extends ConsumerStatefulWidget {
@@ -58,43 +58,33 @@ class _FlashScreenState extends ConsumerState<FlashScreen> {
       return;
     }
 
-    // Resolve USB device name — prefer the one from the attach event,
-    // fall back to querying the OS for whatever is currently connected.
-    String? deviceName = ref.read(detectedDeviceNameProvider);
-    if (deviceName == null || deviceName.isEmpty) {
-      final devices = await listUsbDevices();
-      deviceName = devices.isNotEmpty
-          ? (devices.first['deviceName'] as String? ?? '')
-          : '';
-    }
-    if (deviceName.isEmpty) {
+    // Open device via usb_serial — handles permission popup and CDC setup.
+    setState(() => _log.add('Opening USB device…'));
+    UsbSerialConnection? conn = await UsbSerialConnection.openEsp32();
+    if (conn == null) {
       ref.read(flashStateProvider.notifier).state = FlashState.error;
       ref.read(flashProgressProvider.notifier).state =
           FlashProgress.error('No USB device found — is it plugged in?');
       return;
     }
 
-    // Request permission (Android shows a system dialog on first use)
-    try {
-      await requestUsbPermission(deviceName);
-    } catch (_) {
-      // Permission dialog cancelled or already granted — continue
-    }
+    // Reset into ROM bootloader via DTR/RTS (matches esptool-js behaviour).
+    setState(() => _log.add('Resetting into bootloader…'));
+    await conn.resetIntoBootloader();
+    await conn.close();
 
-    final opened = await UsbBulkConnection.open(deviceName);
-    if (!opened) {
+    // Wait for device to reboot and re-enumerate.
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    // Re-open the fresh bootloader connection.
+    conn = await UsbSerialConnection.openEsp32();
+    if (conn == null) {
       ref.read(flashStateProvider.notifier).state = FlashState.error;
       ref.read(flashProgressProvider.notifier).state =
-          FlashProgress.error('Could not open USB device "$deviceName"');
+          FlashProgress.error('Device did not come back after reset — try again');
       return;
     }
 
-    // Reset the device into ROM bootloader via DTR/RTS toggling (no button press needed).
-    setState(() => _log.add('Resetting device into bootloader…'));
-    await resetIntoBootloader();
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final conn = UsbBulkConnection(deviceName);
     final protocol = _protocolFor(device);
 
     await for (final progress in protocol.flash(conn, bytes)) {
